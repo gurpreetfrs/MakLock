@@ -21,6 +21,9 @@ final class AppMonitorService: ObservableObject {
     /// Prevents checkRunningApps from triggering duplicate prompts.
     private var pendingLockBundleIDs: Set<String> = []
 
+    private var windowPollTimer: Timer?
+    private var lastHadWindows: [String: Bool] = [:]
+
     private init() {}
 
     /// Start monitoring app launches and activations.
@@ -88,6 +91,8 @@ final class AppMonitorService: ObservableObject {
             }
             .store(in: &cancellables)
 
+        startWindowPolling()
+
         NSLog("[MakLock] App monitor started")
 
         // Check already-running protected apps (e.g. after MakLock restart)
@@ -128,6 +133,9 @@ final class AppMonitorService: ObservableObject {
     /// Stop monitoring.
     func stopMonitoring() {
         cancellables.removeAll()
+        windowPollTimer?.invalidate()
+        windowPollTimer = nil
+        lastHadWindows.removeAll()
         NSLog("[MakLock] App monitor stopped")
     }
 
@@ -178,6 +186,53 @@ final class AppMonitorService: ObservableObject {
     private enum Trigger {
         case launch
         case activate
+    }
+
+    private func startWindowPolling() {
+        windowPollTimer?.invalidate()
+        windowPollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.pollWindows()
+        }
+    }
+
+    private func pollWindows() {
+        guard Defaults.shared.appSettings.isProtectionEnabled else { return }
+        let protectedList = Defaults.shared.protectedApps.filter(\.isEnabled)
+        guard !protectedList.isEmpty else { return }
+        guard let windowList = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] else { return }
+
+        var pidsWithWindows = Set<Int32>()
+        for info in windowList {
+            if let pid = info[kCGWindowOwnerPID as String] as? Int32,
+               let layer = info[kCGWindowLayer as String] as? Int,
+               layer == 0 {
+                pidsWithWindows.insert(pid)
+            }
+        }
+
+        let running = NSWorkspace.shared.runningApplications
+        for protectedApp in protectedList {
+            let bundleID = protectedApp.bundleIdentifier
+            guard let app = running.first(where: { $0.bundleIdentifier == bundleID }) else {
+                lastHadWindows[bundleID] = nil
+                continue
+            }
+
+            let hasWindows = pidsWithWindows.contains(app.processIdentifier)
+            let had = lastHadWindows[bundleID]
+            lastHadWindows[bundleID] = hasWindows
+            guard let had, had != hasWindows else { continue }
+
+            if !hasWindows {
+                if !app.isHidden && authenticatedApps.contains(bundleID) {
+                    authenticatedApps.remove(bundleID)
+                    pendingLockBundleIDs.remove(bundleID)
+                    NSLog("[MakLock] All windows closed, auth cleared: %@", bundleID)
+                }
+            } else if app.isActive {
+                handleAppEvent(app, trigger: .activate)
+            }
+        }
     }
 
     private func handleAppEvent(_ runningApp: NSRunningApplication, trigger: Trigger) {
