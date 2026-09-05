@@ -167,20 +167,26 @@ final class AppMonitorService: ObservableObject {
     /// Check if an app has any normal-level windows (layer 0).
     /// Returns false when an app was Cmd+Q'd but its process stayed alive.
     private func appHasWindows(_ app: NSRunningApplication) -> Bool {
-        let pid = app.processIdentifier
-        guard let windowList = CGWindowListCopyWindowInfo(
-            [.optionAll], kCGNullWindowID
-        ) as? [[String: Any]] else {
-            return true // Assume yes if we can't query
+        guard let pids = pidsWithWindows(options: .optionAll) else { return true }
+        return pids.contains(app.processIdentifier)
+    }
+
+    private func pidsWithWindows(options: CGWindowListOption) -> Set<Int32>? {
+        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+            return nil
         }
-        return windowList.contains { info in
-            guard let windowPID = info[kCGWindowOwnerPID as String] as? Int32,
-                  let windowLayer = info[kCGWindowLayer as String] as? Int else {
-                return false
-            }
-            // Layer 0 = normal window level (excludes menu extras, system UI)
-            return windowPID == pid && windowLayer == 0
+        var pids = Set<Int32>()
+        for info in windowList {
+            guard let pid = info[kCGWindowOwnerPID as String] as? Int32,
+                  let layer = info[kCGWindowLayer as String] as? Int,
+                  layer == 0 else { continue }
+            if let alpha = info[kCGWindowAlpha as String] as? Double, alpha <= 0.01 { continue }
+            if let bounds = info[kCGWindowBounds as String] as? [String: CGFloat],
+               let w = bounds["Width"], let h = bounds["Height"],
+               w < 50 || h < 50 { continue }
+            pids.insert(pid)
         }
+        return pids
     }
 
     private enum Trigger {
@@ -199,16 +205,7 @@ final class AppMonitorService: ObservableObject {
         guard Defaults.shared.appSettings.isProtectionEnabled else { return }
         let protectedList = Defaults.shared.protectedApps.filter(\.isEnabled)
         guard !protectedList.isEmpty else { return }
-        guard let windowList = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] else { return }
-
-        var pidsWithWindows = Set<Int32>()
-        for info in windowList {
-            if let pid = info[kCGWindowOwnerPID as String] as? Int32,
-               let layer = info[kCGWindowLayer as String] as? Int,
-               layer == 0 {
-                pidsWithWindows.insert(pid)
-            }
-        }
+        guard let pidsWithWindows = pidsWithWindows(options: .optionOnScreenOnly) else { return }
 
         let running = NSWorkspace.shared.runningApplications
         for protectedApp in protectedList {
@@ -224,7 +221,7 @@ final class AppMonitorService: ObservableObject {
             guard let had, had != hasWindows else { continue }
 
             if !hasWindows {
-                if !app.isHidden && authenticatedApps.contains(bundleID) {
+                if app.isActive && !app.isHidden && authenticatedApps.contains(bundleID) {
                     authenticatedApps.remove(bundleID)
                     pendingLockBundleIDs.remove(bundleID)
                     NSLog("[MakLock] All windows closed, auth cleared: %@", bundleID)
