@@ -68,9 +68,24 @@ final class OverlayWindowService {
         NSLog("[MakLock] Overlay dismissed")
     }
 
-    /// Dismiss all overlays (used by panic key).
     func dismissAll() {
-        hide()
+        stopTimeoutTimer()
+        AuthenticationService.shared.cancelAuthentication()
+
+        let bundleID = currentApp?.bundleIdentifier
+
+        overlayWindows.forEach { $0.close() }
+        overlayWindows.removeAll()
+        currentApp = nil
+
+        if let bundleID {
+            AppMonitorService.shared.clearAuthentication(for: bundleID)
+            NSWorkspace.shared.runningApplications
+                .first { $0.bundleIdentifier == bundleID }?
+                .hide()
+        }
+
+        NSLog("[MakLock] Overlay dismissed without authentication")
     }
 
     /// Whether an overlay is currently displayed.
@@ -194,8 +209,8 @@ final class OverlayWindowService {
             : SafetyManager.overlayTimeout
 
         timeoutTimer = Timer.scheduledTimer(withTimeInterval: timeout, repeats: false) { [weak self] _ in
-            NSLog("[MakLock Safety] Overlay timeout reached (%.0fs) — auto-dismissing", timeout)
-            self?.hide()
+            NSLog("[MakLock Safety] Overlay timeout reached (%.0fs) — dismissing without auth", timeout)
+            self?.dismissAll()
         }
     }
 

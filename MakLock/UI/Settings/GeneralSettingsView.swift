@@ -76,10 +76,6 @@ struct GeneralSettingsView: View {
             }
 
             Section {
-                Button("Check for Updates…") {
-                    UpdateService.shared.updater.checkForUpdates()
-                }
-
                 HStack(spacing: 8) {
                     Text("MakLock \(version) (\(build))  ·  Made by MakMak")
                         .foregroundColor(MakLockColors.textSecondary)

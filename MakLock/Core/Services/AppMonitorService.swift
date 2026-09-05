@@ -148,6 +148,7 @@ final class AppMonitorService: ObservableObject {
     /// Clear authentication for a specific app.
     func clearAuthentication(for bundleIdentifier: String) {
         authenticatedApps.remove(bundleIdentifier)
+        pendingLockBundleIDs.remove(bundleIdentifier)
     }
 
     /// Check if an app is currently authenticated.

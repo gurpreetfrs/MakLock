@@ -74,7 +74,7 @@ final class MenuBarController {
         Defaults.shared.appSettings = settings
 
         if !settings.isProtectionEnabled {
-            OverlayWindowService.shared.dismissAll()
+            OverlayWindowService.shared.hide()
             iconState = .idle
         } else {
             iconState = .active
