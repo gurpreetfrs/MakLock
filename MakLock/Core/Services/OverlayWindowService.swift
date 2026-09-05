@@ -103,7 +103,7 @@ final class OverlayWindowService {
             window.allowKeyStatus = true
             window.makeKeyAndOrderFront(nil)
         }
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activateApp()
     }
 
     // MARK: - Screen Management

@@ -313,7 +313,7 @@ extension WatchProximityService: CBCentralManagerDelegate {
         // Reactivate app after Bluetooth permission dialog (menu bar app has no Dock icon)
         if oldState != .poweredOn && bluetoothState == .poweredOn {
             DispatchQueue.main.async {
-                NSApp.activate(ignoringOtherApps: true)
+                NSApp.activateApp()
             }
         }
 

@@ -58,7 +58,7 @@ final class MenuBarController {
             // Require authentication before showing the popover
             SettingsAuthService.shared.authenticate { [weak self] success in
                 guard success else { return }
-                NSApp.activate(ignoringOtherApps: true)
+                NSApp.activateApp()
                 self?.popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
             }
         }

@@ -1,0 +1,49 @@
+name: Build MakLock.app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [tahoe-fixes]
+
+jobs:
+  build:
+    runs-on: macos-15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode version
+        run: xcodebuild -version
+
+      - name: Resolve packages
+        run: xcodebuild -resolvePackageDependencies -project MakLock.xcodeproj -scheme MakLock
+
+      - name: Build Release (ad-hoc signed)
+        run: |
+          xcodebuild build \
+            -project MakLock.xcodeproj \
+            -scheme MakLock \
+            -configuration Release \
+            -destination "platform=macOS" \
+            -derivedDataPath build \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="-" \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER=""
+
+      - name: Verify signature and entitlements
+        run: |
+          APP=build/Build/Products/Release/MakLock.app
+          codesign --verify --deep --strict --verbose=2 "$APP"
+          codesign -d --entitlements - "$APP"
+
+      - name: Package
+        run: |
+          cd build/Build/Products/Release
+          ditto -c -k --keepParent MakLock.app MakLock.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MakLock-app
+          path: build/Build/Products/Release/MakLock.zip
+          if-no-files-found: error

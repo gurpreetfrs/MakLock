@@ -31,7 +31,7 @@ final class AppMonitorService: ObservableObject {
         workspace.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
             .sink { [weak self] app in
-                self?.handleAppEvent(app)
+                self?.handleAppEvent(app, trigger: .launch)
             }
             .store(in: &cancellables)
 
@@ -39,7 +39,7 @@ final class AppMonitorService: ObservableObject {
         workspace.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
             .sink { [weak self] app in
-                self?.handleAppEvent(app)
+                self?.handleAppEvent(app, trigger: .activate)
             }
             .store(in: &cancellables)
 
@@ -62,8 +62,15 @@ final class AppMonitorService: ObservableObject {
         workspace.notificationCenter.publisher(for: NSWorkspace.didDeactivateApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
             .sink { [weak self] app in
-                guard let bundleID = app.bundleIdentifier else { return }
-                guard self?.authenticatedApps.contains(bundleID) == true else { return }
+                guard let self, let bundleID = app.bundleIdentifier else { return }
+                guard self.authenticatedApps.contains(bundleID) else { return }
+
+                if Defaults.shared.appSettings.requireAuthOnActivate,
+                   ProtectedAppsManager.shared.isProtected(bundleID) {
+                    self.authenticatedApps.remove(bundleID)
+                    NSLog("[MakLock] App deactivated, auth cleared (auth on switch): %@", bundleID)
+                    return
+                }
 
                 // Delay to let window close animations finish
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
@@ -167,7 +174,12 @@ final class AppMonitorService: ObservableObject {
         }
     }
 
-    private func handleAppEvent(_ runningApp: NSRunningApplication) {
+    private enum Trigger {
+        case launch
+        case activate
+    }
+
+    private func handleAppEvent(_ runningApp: NSRunningApplication, trigger: Trigger) {
         guard let bundleID = runningApp.bundleIdentifier else { return }
 
         // Skip blacklisted system apps
@@ -185,6 +197,12 @@ final class AppMonitorService: ObservableObject {
 
         // Skip if app is already authenticated in this session
         guard !authenticatedApps.contains(bundleID) else { return }
+
+        if trigger == .launch && !settings.requireAuthOnLaunch {
+            markAuthenticated(bundleID)
+            NSLog("[MakLock] Launch auth disabled, session opened: %@", bundleID)
+            return
+        }
 
         // Don't show overlay if one is already showing
         guard !OverlayWindowService.shared.isShowing else { return }

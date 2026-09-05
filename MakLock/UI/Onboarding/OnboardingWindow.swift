@@ -44,7 +44,7 @@ final class OnboardingWindowController {
         newWindow.orderFrontRegardless()
 
         // Menu bar apps (LSUIElement) run in background — must activate explicitly
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activateApp()
 
         window = newWindow
     }

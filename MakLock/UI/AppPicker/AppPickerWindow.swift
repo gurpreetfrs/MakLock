@@ -51,7 +51,7 @@ final class AppPickerWindowController {
         }
 
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activateApp()
 
         self.window = window
     }

@@ -50,6 +50,8 @@
 		A10000000000000000000D01 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000D11 /* OnboardingView.swift */; };
 		A10000000000000000000D02 /* OnboardingWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000D12 /* OnboardingWindow.swift */; };
 		A10000000000000000000E01 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000E11 /* AboutView.swift */; };
+		A10000000000000000000E02 /* AboutWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000E12 /* AboutWindow.swift */; };
+		A1000000000000000000AA01 /* NSApplication+Activate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000AA11 /* NSApplication+Activate.swift */; };
 		A10000000000000000000F03 /* HotKey in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000F02 /* HotKey */; };
 		A10000000000000000001001 /* SettingsAuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000001011 /* SettingsAuthService.swift */; };
 		A10000000000000000001101 /* UpdateService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000001111 /* UpdateService.swift */; };
@@ -103,6 +105,8 @@
 		A10000000000000000000D11 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		A10000000000000000000D12 /* OnboardingWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindow.swift; sourceTree = "<group>"; };
 		A10000000000000000000E11 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		A10000000000000000000E12 /* AboutWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutWindow.swift; sourceTree = "<group>"; };
+		A1000000000000000000AA11 /* NSApplication+Activate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NSApplication+Activate.swift"; sourceTree = "<group>"; };
 		A10000000000000000001011 /* SettingsAuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsAuthService.swift; sourceTree = "<group>"; };
 		A10000000000000000001111 /* UpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -173,6 +177,7 @@
 				A100000000000000000000C1 /* Services */,
 				A100000000000000000000C2 /* Managers */,
 				A100000000000000000000C3 /* Storage */,
+				A100000000000000000000C4 /* Extensions */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -200,6 +205,14 @@
 				A10000000000000000000612 /* ProtectedAppsManager.swift */,
 			);
 			path = Managers;
+			sourceTree = "<group>";
+		};
+		A100000000000000000000C4 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				A1000000000000000000AA11 /* NSApplication+Activate.swift */,
+			);
+			path = Extensions;
 			sourceTree = "<group>";
 		};
 		A100000000000000000000C3 /* Storage */ = {
@@ -266,6 +279,7 @@
 				A10000000000000000000515 /* SecuritySettingsView.swift */,
 				A10000000000000000000516 /* WatchSettingsView.swift */,
 				A10000000000000000000E11 /* AboutView.swift */,
+				A10000000000000000000E12 /* AboutWindow.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -428,6 +442,8 @@
 				A10000000000000000000D01 /* OnboardingView.swift in Sources */,
 				A10000000000000000000D02 /* OnboardingWindow.swift in Sources */,
 				A10000000000000000000E01 /* AboutView.swift in Sources */,
+				A10000000000000000000E02 /* AboutWindow.swift in Sources */,
+				A1000000000000000000AA01 /* NSApplication+Activate.swift in Sources */,
 				3C36B23C6F719E84D10ECE91 /* AppInactivityService.swift in Sources */,
 				A10000000000000000001001 /* SettingsAuthService.swift in Sources */,
 				A10000000000000000001101 /* UpdateService.swift in Sources */,

@@ -22,7 +22,7 @@ final class SettingsWindowController {
         if let window {
             centerWindow(window, on: targetScreen)
             window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            NSApp.activateApp()
             return
         }
 
@@ -40,7 +40,7 @@ final class SettingsWindowController {
         window.isReleasedWhenClosed = false
         centerWindow(window, on: targetScreen)
         window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        NSApp.activateApp()
 
         self.window = window
     }
