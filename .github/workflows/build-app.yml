@@ -13,9 +13,6 @@ jobs:
   build:
     runs-on: macos-15
 
-    env:
-      KEYCHAIN_PATH: ${{ runner.temp }}/build.keychain-db
-
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +24,8 @@ jobs:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
         run: |
+          KEYCHAIN_PATH="$RUNNER_TEMP/build.keychain-db"
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
           KEYCHAIN_PASSWORD=$(uuidgen)
           echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
           curl -sSfL -o "$RUNNER_TEMP/DeveloperIDG2CA.cer" https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
@@ -86,15 +85,33 @@ jobs:
           spctl -a -t exec -vv MakLock.app
           rm -f MakLock-notarize.zip "$RUNNER_TEMP/AuthKey.p8"
 
-      - name: Package
+      - name: Create and notarize DMG
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
         run: |
           cd build/Build/Products/Release
-          ditto -c -k --keepParent MakLock.app MakLock.zip
+          echo "$ASC_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          mkdir dmg-root
+          cp -R MakLock.app dmg-root/
+          ln -s /Applications dmg-root/Applications
+          hdiutil create -volname "MakLock" -srcfolder dmg-root -ov -format UDZO MakLock.dmg
+          codesign --sign "Developer ID Application" --timestamp MakLock.dmg
+          xcrun notarytool submit MakLock.dmg \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --wait
+          xcrun stapler staple MakLock.dmg
+          xcrun stapler validate MakLock.dmg
+          spctl -a -t open --context context:primary-signature -vv MakLock.dmg
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: MakLock-app
-          path: build/Build/Products/Release/MakLock.zip
+          name: MakLock-dmg
+          path: build/Build/Products/Release/MakLock.dmg
           if-no-files-found: error
 
       - name: Publish release
@@ -103,7 +120,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
-            build/Build/Products/Release/MakLock.zip \
+            build/Build/Products/Release/MakLock.dmg \
             --title "MakLock $GITHUB_REF_NAME (community fixes)" \
             --notes "Unofficial build with fixes for macOS Tahoe. Signed and notarized. See README for what's changed and how to install."
 
