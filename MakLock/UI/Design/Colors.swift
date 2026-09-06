@@ -8,8 +8,8 @@ enum MakLockColors {
     /// Primary background — pure black
     static let background = Color(hex: 0x000000)
 
-    /// Signature accent — MakLock Gold
-    static let gold = Color(hex: 0xFFD213)
+    /// Signature accent — system blue
+    static let gold = Color(nsColor: .systemBlue)
 
     /// Primary text — white
     static let textPrimary = Color.white

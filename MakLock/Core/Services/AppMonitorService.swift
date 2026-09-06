@@ -44,6 +44,7 @@ final class AppMonitorService: ObservableObject {
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
             .sink { [weak self] app in
                 self?.handleAppEvent(app, trigger: .activate)
+                self?.pollWindows()
             }
             .store(in: &cancellables)
 
@@ -68,13 +69,15 @@ final class AppMonitorService: ObservableObject {
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
             .sink { [weak self] app in
                 guard let self, let bundleID = app.bundleIdentifier else { return }
+                if ProtectedAppsManager.shared.isProtected(bundleID) {
+                    self.pollWindows()
+                }
                 guard self.authenticatedApps.contains(bundleID) else { return }
 
                 if Defaults.shared.appSettings.requireAuthOnActivate,
                    ProtectedAppsManager.shared.isProtected(bundleID) {
                     self.authenticatedApps.remove(bundleID)
-                    app.hide()
-                    NSLog("[MakLock] App deactivated, auth cleared and hidden (auth on switch): %@", bundleID)
+                    NSLog("[MakLock] App deactivated, auth cleared (auth on switch): %@", bundleID)
                     return
                 }
 
@@ -145,6 +148,7 @@ final class AppMonitorService: ObservableObject {
         authenticatedApps.insert(bundleIdentifier)
         pendingLockBundleIDs.remove(bundleIdentifier)
         NSLog("[MakLock] App session authenticated: %@", bundleIdentifier)
+        pollWindows()
     }
 
     /// Clear all authentication sessions (called on idle timeout, sleep, Watch out of range).
@@ -152,6 +156,7 @@ final class AppMonitorService: ObservableObject {
         authenticatedApps.removeAll()
         pendingLockBundleIDs.removeAll()
         NSLog("[MakLock] All app sessions cleared")
+        pollWindows()
     }
 
     /// Clear authentication for a specific app.
@@ -182,9 +187,9 @@ final class AppMonitorService: ObservableObject {
                   let layer = info[kCGWindowLayer as String] as? Int,
                   layer == 0 else { continue }
             if let alpha = info[kCGWindowAlpha as String] as? Double, alpha <= 0.01 { continue }
-            if let bounds = info[kCGWindowBounds as String] as? [String: CGFloat],
-               let w = bounds["Width"], let h = bounds["Height"],
-               w < 50 || h < 50 { continue }
+            if let boundsDict = info[kCGWindowBounds as String] as? NSDictionary,
+               let bounds = CGRect(dictionaryRepresentation: boundsDict),
+               bounds.width < 50 || bounds.height < 50 { continue }
             pids.insert(pid)
         }
         return pids
@@ -208,6 +213,7 @@ final class AppMonitorService: ObservableObject {
         windowPollTimer?.invalidate()
         windowPollTimer = nil
         lastHadWindows.removeAll()
+        BackgroundBlurService.shared.setTargets([])
     }
 
     private func updateWindowPolling() {
@@ -223,17 +229,28 @@ final class AppMonitorService: ObservableObject {
     }
 
     private func pollWindows() {
-        guard Defaults.shared.appSettings.isProtectionEnabled else { return }
+        guard Defaults.shared.appSettings.isProtectionEnabled else {
+            BackgroundBlurService.shared.setTargets([])
+            return
+        }
         let protectedList = Defaults.shared.protectedApps.filter(\.isEnabled)
-        guard !protectedList.isEmpty else { return }
+        guard !protectedList.isEmpty else {
+            BackgroundBlurService.shared.setTargets([])
+            return
+        }
         guard let pidsWithWindows = pidsWithWindows(options: .optionOnScreenOnly) else { return }
 
         let running = NSWorkspace.shared.runningApplications
+        var coverPIDs = Set<pid_t>()
         for protectedApp in protectedList {
             let bundleID = protectedApp.bundleIdentifier
             guard let app = running.first(where: { $0.bundleIdentifier == bundleID }) else {
                 lastHadWindows[bundleID] = nil
                 continue
+            }
+
+            if !app.isActive && !app.isHidden {
+                coverPIDs.insert(app.processIdentifier)
             }
 
             let hasWindows = pidsWithWindows.contains(app.processIdentifier)
@@ -251,6 +268,7 @@ final class AppMonitorService: ObservableObject {
                 handleAppEvent(app, trigger: .activate)
             }
         }
+        BackgroundBlurService.shared.setTargets(coverPIDs)
     }
 
     private func handleAppEvent(_ runningApp: NSRunningApplication, trigger: Trigger) {
