@@ -1,5 +1,5 @@
 **Original Repo** : https://github.com/dutkiewiczmaciej/MakLock
-huge thank you to the original dev for creating a free and open-source tool bridging the final gap for total security for your mac, thank you Mak.
+<div>huge thank you to the original dev for creating a free and open-source tool bridging the final gap for total security for your mac, thank you Mak.</div>
 
 <h1>What's New?</h1>
 
