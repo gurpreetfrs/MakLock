@@ -42,5 +42,5 @@ macOS will ask for Bluetooth permission on first launch. That's only used for th
 
 -------------------------------------------------
 
-This has been tested on macOS Tahoe 26.6.2 (WORKING), all core functions work however i can't confirm if the apple watch unlock works since i don't actually own one.
+This has been tested on macOS Tahoe 26.6.2 (WORKING), all core functions work however i can't confirm if the apple watch unlock works since i'm too lazy to 🫩.
 
