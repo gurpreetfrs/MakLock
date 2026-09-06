@@ -258,7 +258,7 @@ final class BlurCoverPanel: NSPanel {
         ignoresMouseEvents = true
         hasShadow = false
         isReleasedWhenClosed = false
-        animationBehavior = .none
+        animationBehavior = .default
         hidesOnDeactivate = false
 
         container.wantsLayer = true
