@@ -13,16 +13,41 @@ jobs:
   build:
     runs-on: macos-15
 
+    env:
+      KEYCHAIN_PATH: ${{ runner.temp }}/build.keychain-db
+
     steps:
       - uses: actions/checkout@v4
 
       - name: Xcode version
         run: xcodebuild -version
 
+      - name: Import signing certificate
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN_PASSWORD=$(uuidgen)
+          echo "$MACOS_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          curl -sSfL -o "$RUNNER_TEMP/DeveloperIDG2CA.cer" https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/DeveloperIDG2CA.cer" -k "$KEYCHAIN_PATH" -T /usr/bin/codesign
+          security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+          rm -f "$RUNNER_TEMP/cert.p12"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
       - name: Resolve packages
         run: xcodebuild -resolvePackageDependencies -project MakLock.xcodeproj -scheme MakLock
 
-      - name: Build Release (ad-hoc signed)
+      - name: Build Release (Developer ID signed)
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           xcodebuild build \
             -project MakLock.xcodeproj \
@@ -31,16 +56,35 @@ jobs:
             -destination "platform=macOS" \
             -derivedDataPath build \
             CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="-" \
-            DEVELOPMENT_TEAM="" \
-            PROVISIONING_PROFILE_SPECIFIER="" \
-            ENABLE_HARDENED_RUNTIME=NO
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--timestamp"
 
-      - name: Verify signature and entitlements
+      - name: Verify signature
         run: |
           APP=build/Build/Products/Release/MakLock.app
           codesign --verify --deep --strict --verbose=2 "$APP"
-          codesign -d --entitlements - "$APP"
+          codesign -dvv "$APP" 2>&1 | grep -E "Authority|TeamIdentifier|Timestamp"
+
+      - name: Notarize
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          cd build/Build/Products/Release
+          echo "$ASC_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          ditto -c -k --keepParent MakLock.app MakLock-notarize.zip
+          xcrun notarytool submit MakLock-notarize.zip \
+            --key "$RUNNER_TEMP/AuthKey.p8" \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --wait
+          xcrun stapler staple MakLock.app
+          xcrun stapler validate MakLock.app
+          spctl -a -t exec -vv MakLock.app
+          rm -f MakLock-notarize.zip "$RUNNER_TEMP/AuthKey.p8"
 
       - name: Package
         run: |
@@ -61,4 +105,8 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             build/Build/Products/Release/MakLock.zip \
             --title "MakLock $GITHUB_REF_NAME (community fixes)" \
-            --notes "Unofficial build with fixes for macOS Tahoe. See README for what's changed and how to install."
+            --notes "Unofficial build with fixes for macOS Tahoe. Signed and notarized. See README for what's changed and how to install."
+
+      - name: Remove signing keychain
+        if: always()
+        run: security delete-keychain "$KEYCHAIN_PATH" || true
