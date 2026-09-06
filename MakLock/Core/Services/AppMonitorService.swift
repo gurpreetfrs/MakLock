@@ -73,7 +73,8 @@ final class AppMonitorService: ObservableObject {
                 if Defaults.shared.appSettings.requireAuthOnActivate,
                    ProtectedAppsManager.shared.isProtected(bundleID) {
                     self.authenticatedApps.remove(bundleID)
-                    NSLog("[MakLock] App deactivated, auth cleared (auth on switch): %@", bundleID)
+                    app.hide()
+                    NSLog("[MakLock] App deactivated, auth cleared and hidden (auth on switch): %@", bundleID)
                     return
                 }
 
