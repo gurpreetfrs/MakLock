@@ -1,161 +1,46 @@
-<p align="center">
-  <img src="Resources/icon.png" width="128" height="128" alt="MakLock icon">
-</p>
+**Original Repo** : https://github.com/dutkiewiczmaciej/MakLock
+Shout out to the original dev for the minimalist and sleek design
 
-<h1 align="center">MakLock</h1>
+<h1>What's New?</h1>
 
-<p align="center">
-  <strong>Lock any macOS app with Touch ID, Apple Watch, or password.</strong><br>
-  Free, open source, and more powerful than paid alternatives.
-</p>
+<h2>Bug fixes</h2>
 
-<p align="center">
-  <img src="https://img.shields.io/badge/platform-macOS%2013%2B-black?style=flat-square" alt="Platform">
-  <img src="https://img.shields.io/badge/swift-5.9%2B-FFD213?style=flat-square" alt="Swift">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-white?style=flat-square" alt="License"></a>
-  <a href="https://github.com/dutkiewiczmaciej/MakLock/stargazers"><img src="https://img.shields.io/github/stars/dutkiewiczmaciej/MakLock?style=flat-square&color=FFD213" alt="Stars"></a>
-  <a href="https://github.com/dutkiewiczmaciej/MakLock/releases/latest"><img src="https://img.shields.io/github/v/release/dutkiewiczmaciej/MakLock?style=flat-square&label=release" alt="Release"></a>
-  <a href="https://github.com/dutkiewiczmaciej/MakLock/releases"><img src="https://img.shields.io/github/downloads/dutkiewiczmaciej/MakLock/total?style=flat-square&color=34C759&label=downloads&v=2" alt="Downloads"></a>
-</p>
+- App no longer quits when closing the About window. The About window was released twice on close, killing the process. (upstream #47)
 
----
+- "Require authentication on app switch" now works. The setting existed but nothing read it. With it on, an unlocked app re-locks as soon as you switch away from it. (upstream #51)
+  
+- "Require authentication on app launch" can be turned off and on without issues now.
 
-## What is MakLock?
+- Messages app wouldn't re-lock when it was re-opened/switched out of so that has been fixed
 
-MakLock is a lightweight menu bar app that protects your macOS applications with Touch ID, Apple Watch proximity, or a backup password. When someone tries to open or switch to a protected app, MakLock blocks access with a blur overlay and requires authentication.
+<h2>Security changes</h2>
 
-Unlike App Store alternatives, MakLock is distributed directly — giving it full overlay and process management capabilities that sandboxed apps simply cannot offer.
+- I found originally if you just waited out the automatic prompt closure when no authentication was registered the app would just remain open in the foreground allowing people to just wait out and bypass the lock entirely, this has been fixed, so if the prompt expires the app just closes and re-locks.
 
-## Why MakLock?
+- Closing or minimising app's (via the red X or yellow -) also re-locks apps now, whereas previously it wouldn't do anything. In the previous build as macOS doesn't notify apps when another app's window closes, i've changed it so MakLock checks the window server twice a second (metadata only, no permissions) while a protected app is running. When an app is frontmost with no visible windows, its session ends; the next window that appears is locked. if a protected app is not running it will not run the two second checks. Battery-wise it's minimal impact, comparable to the clock in your system tray.
 
-| Feature | MakLock | AppLocker ($17.99) | Cisdem AppCrypt ($19.99/yr) |
-|---------|:-------:|:------------------:|:---------------------------:|
-| **Price** | **Free forever** | 1 app free, paid for more | Trial only |
-| **Open source** | **Yes** | No | No |
-| **Touch ID** | **Yes** | Paid only | No |
-| **Lock on app switch** | **Yes** | No (launch only) | Yes (direct version) |
-| **Apple Watch unlock** | **Yes** (wrist detection) | No | No |
-| **Full-screen overlay** | **Yes** (blur, all monitors) | Yes (solid, single monitor) | Dialog box |
-| **No content flash** | **Yes** (NSPanel) | No (brief flash on launch) | N/A |
-| **Auto-close apps** | **Yes** | No (sandbox) | Yes (direct version) |
-| **Close apps on sleep** | **Yes** | No | No |
-| **Auto-lock on idle** | **Yes** | No | Yes |
-| **Auto-lock on sleep** | **Yes** | No | No |
-| **Panic key** | **Yes** | No | No |
-| **Multi-monitor** | **Yes** | Unknown | No |
-| **Bypass resistant** | **Yes** | No (Bundle ID edit) | Unknown |
-| **Can't be deleted without auth** | N/A | No (sandbox) | Yes (direct version) |
+<h2>Removed</h2>
 
-AppLocker (App Store) is sandboxed — it can only intercept app launches, not activations. If an app is already running, switching back shows content without authentication. Its overlay can also freeze the entire Mac, requiring a hard reboot. MakLock uses a non-activating NSPanel overlay that never steals focus, preventing these issues.
+- Automatic updates are disabled. The official build checks the original developer's update feed daily which also for some reason showed a duplicate update. This fork removes that, so it can't replace itself with the official build (which would reintroduce the bugs above). I do use this app on a daily, so if something does break in a future update i'm likely to fix it by the next day fingers crossed. However for future releases you'll have to return to this repo.
 
-## Features
+<h2>Install</h2>
 
-- [x] Lock apps with Touch ID (single prompt)
-- [x] Password fallback for Macs without Touch ID
-- [x] Apple Watch proximity unlock with wrist detection
-- [x] Full-screen blur overlay on all monitors
-- [x] Auto-lock after idle timeout (configurable)
-- [x] Auto-lock on sleep/wake
-- [x] Auto-close inactive apps (prevents notification snooping)
-- [x] Close protected apps on sleep (privacy on shared laptops)
-- [x] Menu bar app (no Dock icon, runs silently)
-- [x] Panic key emergency exit (`Cmd+Opt+Shift+Ctrl+U`)
-- [x] System app blacklist (Terminal, Xcode, etc. can never be locked)
-- [x] Multi-monitor support
-- [x] First launch onboarding
-- [x] Settings with tabbed UI
-- [x] Automatic updates via Sparkle 2
-- [ ] Trusted Wi-Fi auto-unlock *(coming in v1.1)*
-- [ ] Per-window overlay *(coming in v1.2)*
+- Download MakLock.dmg from the Releases page.
+- Open the DMG and drag MakLock onto the Applications shortcut.
+- Open MakLock from your Applications folder. It runs in the menu bar — look for the lock icon at the top right of your screen. There's no Dock icon.
+- If you're new to MakLock, an onboarding window walks you through setting a backup password and choosing apps to protect.
 
-## Screenshots
+Releases are signed with a Developer ID certificate and notarized by Apple, so macOS opens them without any warnings or workarounds.
 
-<p align="center">
-  <img src="Resources/screenshots/overlay.png" width="720" alt="Lock overlay">
-  <br><em>Full-screen blur overlay with Touch ID unlock</em>
-</p>
+If you already have the official MakLock installed, quit it from its menu bar icon first, delete it from Applications, then follow the steps above. Your protected-apps list and settings carry over.
 
-<p align="center">
-  <img src="Resources/screenshots/settings.png" width="560" alt="Settings window">
-  <br><em>Settings with protected apps management</em>
-</p>
+macOS will ask for Bluetooth permission on first launch. That's only used for the Apple Watch unlock feature; decline it if you don't use that.
 
-<p align="center">
-  <img src="Resources/screenshots/menubar.png" width="280" alt="Menu bar">
-  <br><em>Menu bar with quick toggle and status</em>
-</p>
+<h2>Help?!?</h2>
 
-## Installation
+- If for some reason the authentication doesn't work you can also either wait 60 seconds for the prompt to auto-dismiss itself or use Cmd + Opt + Shift + Ctrl + U to instantly terminate the prompt.
 
-### Download
+-------------------------------------------------
 
-**[Download MakLock 1.0.0](https://github.com/dutkiewiczmaciej/MakLock/releases/latest)** — open the DMG and drag to Applications.
+This has been tested on macOS Tahoe 26.6.2 (WORKING), all core functions work however i can't confirm if the apple watch unlock works since i don't actually own one.
 
-> Signed with Developer ID and notarized by Apple. No Gatekeeper warnings — just download and run.
-
-### Homebrew
-
-```bash
-brew tap dutkiewiczmaciej/tap
-brew install --cask maklock
-```
-
-### Build from Source
-
-```bash
-git clone https://github.com/dutkiewiczmaciej/MakLock.git
-cd MakLock
-open MakLock.xcodeproj
-```
-
-Build and run with `Cmd+R`. Requires Xcode 15+ and macOS 13+.
-
-## How It Works
-
-1. **App Monitor** — watches for protected app launches and activations via NSWorkspace
-2. **Lock Overlay** — instantly shows a full-screen blur overlay on all displays
-3. **Authentication** — prompts Touch ID, checks Apple Watch proximity, or asks for password
-4. **Re-lock on quit** — Cmd+Q clears authentication, so the next launch requires re-auth (even for apps that stay alive in background like Messages)
-5. **Auto-lock** — re-locks on idle timeout, sleep, or when Apple Watch leaves range
-6. **Auto-close** — optionally terminates inactive protected apps to prevent notification snooping
-
-## Architecture
-
-MakLock is a native Swift/SwiftUI application distributed outside the App Store for full system access.
-
-```
-MakLock/
-  App/        Entry point, AppDelegate
-  Core/       Services (AppMonitor, Auth, Watch, Overlay, Idle, Sleep, Inactivity)
-  UI/         Design system, Components, Settings, Lock Overlay
-  Models/     Data models (ProtectedApp, AppSettings, LockSession)
-  Resources/  Assets, Info.plist, Entitlements
-```
-
-**Key frameworks:** SwiftUI, AppKit, LocalAuthentication, CoreBluetooth, IOKit, ServiceManagement, HotKey (SPM), Sparkle 2 (SPM)
-
-## Safety
-
-MakLock includes multiple safety mechanisms to ensure you never get locked out:
-
-- **Panic key** — `Cmd+Option+Shift+Control+U` instantly dismisses all overlays
-- **System blacklist** — Terminal, Xcode, Activity Monitor, and other critical apps can never be locked
-- **Timeout failsafe** — overlays auto-dismiss after 60 seconds without interaction
-- **Dev mode** — DEBUG builds include a Skip button and 10-second auto-dismiss
-
-## Requirements
-
-- macOS 13.0 (Ventura) or later
-- Apple Silicon or Intel Mac
-- Touch ID recommended (password fallback available)
-- Apple Watch with watchOS 9+ for proximity unlock (optional)
-
-## Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-If you find MakLock useful, consider giving it a [star on GitHub](https://github.com/dutkiewiczmaciej/MakLock) — it helps others discover the project.
-
-## License
-
-[MIT](LICENSE) — Made by [MakMak](https://github.com/dutkiewiczmaciej)
