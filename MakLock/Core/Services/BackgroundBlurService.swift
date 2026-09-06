@@ -108,6 +108,7 @@ final class BackgroundBlurService {
     private func refreshRelative(_ entries: [Entry]) {
         let own = ownPanelNumbers
         let targets = entries.filter { $0.isTarget && !own.contains($0.number) }
+        let index: [Int: Int] = Dictionary(uniqueKeysWithValues: entries.enumerated().map { ($1.number, $0) })
         var seen = Set<Int>()
 
         for t in targets {
@@ -120,7 +121,16 @@ final class BackgroundBlurService {
             if panel.frame != frame { panel.setFrame(frame, display: true) }
             panel.showsIcon = frame.width >= 120 && frame.height >= 120
             panel.cornerRadius = cornerRadius(for: frame)
-            panel.order(.above, relativeTo: t.number)
+
+            let directlyAbove: Bool = {
+                guard panel.isVisible,
+                      let p = index[panel.windowNumber],
+                      let w = index[t.number] else { return false }
+                return p == w - 1
+            }()
+            if !directlyAbove {
+                panel.order(.above, relativeTo: t.number)
+            }
             seen.insert(t.number)
         }
         for (number, panel) in windowPanels where !seen.contains(number) {
