@@ -58,14 +58,43 @@ jobs:
             CODE_SIGN_IDENTITY="Developer ID Application" \
             DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
             ENABLE_HARDENED_RUNTIME=YES \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
             OTHER_CODE_SIGN_FLAGS="--timestamp"
+
+      - name: Re-sign nested components
+        run: |
+          APP=build/Build/Products/Release/MakLock.app
+          IDENTITY="Developer ID Application"
+          SIGN="codesign --force --options runtime --timestamp --preserve-metadata=entitlements --sign"
+          FW="$APP/Contents/Frameworks/Sparkle.framework/Versions/B"
+          if [ -d "$FW" ]; then
+            for item in "$FW"/XPCServices/*.xpc "$FW"/Autoupdate "$FW"/Updater.app; do
+              [ -e "$item" ] && $SIGN "$IDENTITY" "$item"
+            done
+            $SIGN "$IDENTITY" "$FW"
+          fi
+          find "$APP/Contents/Frameworks" -maxdepth 1 -name "*.framework" ! -name "Sparkle.framework" -print0 \
+            | xargs -0 -I{} $SIGN "$IDENTITY" "{}"
+          codesign --force --options runtime --timestamp \
+            --entitlements MakLock/Resources/MakLock.entitlements \
+            --sign "$IDENTITY" "$APP"
 
       - name: Verify signature
         run: |
           APP=build/Build/Products/Release/MakLock.app
           codesign --verify --deep --strict --verbose=2 "$APP"
-          find "$APP" \( -name "*.framework" -o -name "*.xpc" -o -name "*.app" -o -perm +111 -type f \) -print0 \
-            | xargs -0 -I{} sh -c 'echo "--- {}"; codesign -dvv "{}" 2>&1 | grep -E "Authority=|TeamIdentifier|Timestamp|flags=" || true' 
+          echo "===== App signature ====="
+          codesign -dvv "$APP" 2>&1 | grep -E "Authority=|TeamIdentifier|Timestamp|flags="
+          echo "===== App entitlements ====="
+          codesign -d --entitlements - --xml "$APP" | plutil -p -
+          echo "===== Sparkle nested signatures ====="
+          for item in "$APP"/Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/*.xpc \
+                      "$APP"/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate \
+                      "$APP"/Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app; do
+            [ -e "$item" ] || continue
+            echo "--- $item"
+            codesign -dvv "$item" 2>&1 | grep -E "Authority=Developer|TeamIdentifier|flags="
+          done
 
       - name: Notarize
         env:
