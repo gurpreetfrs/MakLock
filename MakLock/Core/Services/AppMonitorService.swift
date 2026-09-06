@@ -34,6 +34,7 @@ final class AppMonitorService: ObservableObject {
         workspace.notificationCenter.publisher(for: NSWorkspace.didLaunchApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
             .sink { [weak self] app in
+                self?.updateWindowPolling()
                 self?.handleAppEvent(app, trigger: .launch)
             }
             .store(in: &cancellables)
@@ -56,6 +57,7 @@ final class AppMonitorService: ObservableObject {
                     self?.authenticatedApps.remove(bundleID)
                     NSLog("[MakLock] App terminated, auth cleared: %@", bundleID)
                 }
+                DispatchQueue.main.async { self?.updateWindowPolling() }
             }
             .store(in: &cancellables)
 
@@ -91,7 +93,7 @@ final class AppMonitorService: ObservableObject {
             }
             .store(in: &cancellables)
 
-        startWindowPolling()
+        updateWindowPolling()
 
         NSLog("[MakLock] App monitor started")
 
@@ -133,9 +135,7 @@ final class AppMonitorService: ObservableObject {
     /// Stop monitoring.
     func stopMonitoring() {
         cancellables.removeAll()
-        windowPollTimer?.invalidate()
-        windowPollTimer = nil
-        lastHadWindows.removeAll()
+        stopWindowPolling()
         NSLog("[MakLock] App monitor stopped")
     }
 
@@ -195,9 +195,29 @@ final class AppMonitorService: ObservableObject {
     }
 
     private func startWindowPolling() {
-        windowPollTimer?.invalidate()
-        windowPollTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+        guard windowPollTimer == nil else { return }
+        let timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.pollWindows()
+        }
+        timer.tolerance = 0.1
+        windowPollTimer = timer
+    }
+
+    private func stopWindowPolling() {
+        windowPollTimer?.invalidate()
+        windowPollTimer = nil
+        lastHadWindows.removeAll()
+    }
+
+    private func updateWindowPolling() {
+        let running = NSWorkspace.shared.runningApplications
+        let anyProtectedRunning = Defaults.shared.protectedApps.contains { protectedApp in
+            protectedApp.isEnabled && running.contains { $0.bundleIdentifier == protectedApp.bundleIdentifier }
+        }
+        if anyProtectedRunning {
+            startWindowPolling()
+        } else {
+            stopWindowPolling()
         }
     }
 
