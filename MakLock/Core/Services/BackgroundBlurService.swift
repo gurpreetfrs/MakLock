@@ -92,6 +92,19 @@ final class BackgroundBlurService {
         return NSRect(x: r.minX, y: primaryHeight - r.maxY, width: r.width, height: r.height)
     }
 
+    private static let defaultCornerRadius: CGFloat = {
+        let override = UserDefaults.standard.double(forKey: "BlurCornerRadius")
+        if override > 0 { return CGFloat(override) }
+        return ProcessInfo.processInfo.operatingSystemVersion.majorVersion >= 26 ? 16 : 10
+    }()
+
+    private func cornerRadius(for frame: NSRect) -> CGFloat {
+        let fillsScreen = NSScreen.screens.contains { screen in
+            abs(screen.frame.width - frame.width) < 2 && abs(screen.frame.height - frame.height) < 2
+        }
+        return fillsScreen ? 0 : Self.defaultCornerRadius
+    }
+
     private func refreshRelative(_ entries: [Entry]) {
         let own = ownPanelNumbers
         let targets = entries.filter { $0.isTarget && !own.contains($0.number) }
@@ -106,6 +119,7 @@ final class BackgroundBlurService {
             let frame = appKitFrame(t.bounds)
             if panel.frame != frame { panel.setFrame(frame, display: true) }
             panel.showsIcon = frame.width >= 120 && frame.height >= 120
+            panel.cornerRadius = cornerRadius(for: frame)
             panel.order(.above, relativeTo: t.number)
             seen.insert(t.number)
         }
@@ -203,9 +217,31 @@ final class BackgroundBlurService {
 
 final class BlurCoverPanel: NSPanel {
     private let iconView = NSImageView()
+    private let effect = NSVisualEffectView()
+    private let container = NSView()
 
     var showsIcon: Bool = false {
         didSet { iconView.isHidden = !showsIcon }
+    }
+
+    var cornerRadius: CGFloat = 0 {
+        didSet {
+            guard cornerRadius != oldValue else { return }
+            container.layer?.cornerRadius = cornerRadius
+            effect.maskImage = cornerRadius > 0 ? Self.maskImage(radius: cornerRadius) : nil
+        }
+    }
+
+    private static func maskImage(radius: CGFloat) -> NSImage {
+        let edge = radius * 2 + 1
+        let image = NSImage(size: NSSize(width: edge, height: edge), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        image.resizingMode = .stretch
+        return image
     }
 
     init(level: NSWindow.Level) {
@@ -225,10 +261,13 @@ final class BlurCoverPanel: NSPanel {
         animationBehavior = .none
         hidesOnDeactivate = false
 
-        let effect = NSVisualEffectView()
+        container.wantsLayer = true
+        container.layer?.masksToBounds = true
+
         effect.material = .hudWindow
         effect.blendingMode = .behindWindow
         effect.state = .active
+        effect.autoresizingMask = [.width, .height]
 
         let tint = NSView()
         tint.wantsLayer = true
@@ -242,13 +281,15 @@ final class BlurCoverPanel: NSPanel {
         iconView.translatesAutoresizingMaskIntoConstraints = false
         iconView.isHidden = true
 
-        contentView = effect
-        tint.frame = effect.bounds
-        effect.addSubview(tint)
-        effect.addSubview(iconView)
+        contentView = container
+        effect.frame = container.bounds
+        tint.frame = container.bounds
+        container.addSubview(effect)
+        container.addSubview(tint)
+        container.addSubview(iconView)
         NSLayoutConstraint.activate([
-            iconView.centerXAnchor.constraint(equalTo: effect.centerXAnchor),
-            iconView.centerYAnchor.constraint(equalTo: effect.centerYAnchor)
+            iconView.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            iconView.centerYAnchor.constraint(equalTo: container.centerYAnchor)
         ])
     }
 
